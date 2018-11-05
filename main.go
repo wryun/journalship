@@ -9,10 +9,10 @@ import (
 	"github.com/coreos/go-systemd/sdjournal"
 	"github.com/ghodss/yaml"
 
-	"github.com/wryun/shipit/internal/formatters"
-	"github.com/wryun/shipit/internal/reader"
-	"github.com/wryun/shipit/internal/shippers"
-	"github.com/wryun/shipit/internal/transformer"
+	"github.com/wryun/journalship/internal/formatters"
+	"github.com/wryun/journalship/internal/reader"
+	"github.com/wryun/journalship/internal/shippers"
+	"github.com/wryun/journalship/internal/transformer"
 )
 
 type Config struct {

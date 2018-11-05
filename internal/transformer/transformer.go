@@ -7,8 +7,8 @@ import (
 
 	"github.com/coreos/go-systemd/sdjournal"
 
-	"github.com/wryun/shipit/internal/formatters"
-	"github.com/wryun/shipit/internal/shippers"
+	"github.com/wryun/journalship/internal/formatters"
+	"github.com/wryun/journalship/internal/shippers"
 )
 
 type Transformer struct {
