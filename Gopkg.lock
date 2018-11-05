@@ -14,6 +14,12 @@
   version = "v4"
 
 [[projects]]
+  name = "github.com/ghodss/yaml"
+  packages = ["."]
+  revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
+  version = "v1.0.0"
+
+[[projects]]
   name = "github.com/taskcluster/json-e"
   packages = [
     ".",
@@ -23,9 +29,15 @@
   revision = "23f8809a024ae8209147307bfae7252e24fb51c4"
   version = "v3.0.0"
 
+[[projects]]
+  name = "gopkg.in/yaml.v2"
+  packages = ["."]
+  revision = "5420a8b6744d3b0345ab293f6fcba19c978f1183"
+  version = "v2.2.1"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "9cb810b4a4170b1c823c4ff7086aae43dfefb1a5d61032b81933b07fd30800d4"
+  inputs-digest = "1d0e5094476f6450cd47972c8c4ca207323a362d970c6bad5898e25265aed10c"
   solver-name = "gps-cdcl"
   solver-version = 1
