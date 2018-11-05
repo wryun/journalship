@@ -55,15 +55,27 @@ func loadConfig() Config {
 	configFileName := flag.String("c", "", "file to use for config")
 	flag.Parse()
 
+	if *configFileName == "" {
+		log.Fatal("must specify config file (-c)")
+	}
+
 	configFile, err := ioutil.ReadFile(*configFileName)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	var config Config
+	config := Config{
+		NumShippers:     2,
+		NumTransformers: 2,
+		Transformer:     []byte("{}"),
+		Reader:          []byte("{}"),
+		Shipper:         []byte("{}"),
+		Formatters:      []json.RawMessage{[]byte("[]")},
+	}
 	if err := yaml.Unmarshal(configFile, &config); err != nil {
 		log.Fatal(err)
 	}
+
 	return config
 }
 
