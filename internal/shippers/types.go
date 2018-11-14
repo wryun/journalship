@@ -8,6 +8,7 @@ type ShipperConstructor func(json.RawMessage) (Shipper, error)
 
 var Shippers = map[string]ShipperConstructor{
 	"kinesis": NewKinesisShipper,
+	"file":    NewFileShipper,
 }
 
 type OutputChunk interface {

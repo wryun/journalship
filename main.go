@@ -70,7 +70,7 @@ func loadConfig() Config {
 		Transformer:     []byte("{}"),
 		Reader:          []byte("{}"),
 		Shipper:         []byte("{}"),
-		Formatters:      []json.RawMessage{[]byte("[]")},
+		Formatters:      []json.RawMessage{},
 	}
 	if err := yaml.Unmarshal(configFile, &config); err != nil {
 		log.Fatal(err)
