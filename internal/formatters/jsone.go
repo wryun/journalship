@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	jsone "github.com/taskcluster/json-e"
+	"github.com/wryun/journalship/internal"
 )
 
 func NewJsoneFormatter(rawConfig json.RawMessage) (FormatEntry, error) {
@@ -14,7 +15,7 @@ func NewJsoneFormatter(rawConfig json.RawMessage) (FormatEntry, error) {
 		return nil, err
 	}
 
-	return func(entry *Entry) error {
+	return func(entry *internal.Entry) error {
 		var err error
 		entry.Fields, err = jsone.Render(config.Template, map[string]interface{}{
 			"fields": entry.Fields,

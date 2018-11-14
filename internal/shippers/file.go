@@ -57,11 +57,12 @@ func (fc *FileOutputChunk) Add(entry interface{}) (bool, error) {
 		return false, err
 	}
 
-	if len(fc.contents)+len(rawEntry) > fc.chunkSize {
+	if len(fc.contents)+len(rawEntry)+1 > fc.chunkSize {
 		return false, nil
 	}
 
 	fc.contents = append(fc.contents, rawEntry...)
+	fc.contents = append(fc.contents, []byte("\n")...)
 	return true, nil
 }
 
@@ -89,6 +90,5 @@ func (fs *FileShipper) Run(outputChunksChannel chan OutputChunk) {
 		}
 		fileOutputChunk := outputChunk.(*FileOutputChunk)
 		fs.out.Write(fileOutputChunk.contents)
-		fs.out.Write([]byte("\n"))
 	}
 }

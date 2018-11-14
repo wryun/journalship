@@ -5,8 +5,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/coreos/go-systemd/sdjournal"
-
+	"github.com/wryun/journalship/internal"
 	"github.com/wryun/journalship/internal/formatters"
 	"github.com/wryun/journalship/internal/shippers"
 )
@@ -43,7 +42,7 @@ func makeTimeout(duration time.Duration) chan bool {
 	return timeout
 }
 
-func (t *Transformer) Run(journalEntriesChannel chan []*sdjournal.JournalEntry, outputChunksChannel chan shippers.OutputChunk) {
+func (t *Transformer) Run(journalEntriesChannel chan []*internal.Entry, outputChunksChannel chan shippers.OutputChunk) {
 	chunk := t.newOutputChunk()
 	lastShipTime := time.Now()
 
@@ -54,7 +53,7 @@ func (t *Transformer) Run(journalEntriesChannel chan []*sdjournal.JournalEntry, 
 	}
 
 	for {
-		var entries []*sdjournal.JournalEntry
+		var entries []*internal.Entry
 		if !chunk.IsEmpty() {
 			select {
 			case <-makeTimeout(t.maxLogDelay - time.Now().Sub(lastShipTime)):
@@ -66,10 +65,9 @@ func (t *Transformer) Run(journalEntriesChannel chan []*sdjournal.JournalEntry, 
 			entries = <-journalEntriesChannel
 		}
 
-		for _, journalEntry := range entries {
-			entry := formatters.NewEntry(journalEntry)
+		for _, entry := range entries {
 			for _, formatFn := range t.formatFns {
-				if err := formatFn(&entry); err != nil {
+				if err := formatFn(entry); err != nil {
 					// TODO
 					log.Println(err)
 				}

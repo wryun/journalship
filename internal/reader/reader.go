@@ -1,29 +1,32 @@
 package reader
 
+// #include <systemd/sd-journal.h>
+import "C"
+
 import (
 	"encoding/json"
 	"log"
 
-	"github.com/coreos/go-systemd/sdjournal"
+	"github.com/wryun/journalship/internal"
 )
 
 type Reader struct {
-	journal               *sdjournal.Journal
-	journalEntriesInChunk int
+	journal               *C.sd_journal
+	entriesInChunk int
 }
 
 func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 	config := struct {
 		CursorFile            string `json:"cursorFile"`
-		JournalEntriesInChunk int    `json:"journalEntriesInChunk"`
+		EntriesInChunk int    `json:"EntriesInChunk"`
 	}{
-		JournalEntriesInChunk: 100,
+		EntriesInChunk: 100,
 	}
 	if err := json.Unmarshal(rawConfig, &config); err != nil {
 		return nil, err
 	}
 
-	journal, err := sdjournal.NewJournal()
+	journal, err := NewJournal()
 	if err != nil {
 		return nil, err
 	}
@@ -36,15 +39,15 @@ func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 	}
 	return &Reader{
 		journal:               journal,
-		journalEntriesInChunk: config.JournalEntriesInChunk,
+		entriesInChunk: config.EntriesInChunk,
 	}, nil
 }
 
-func (r *Reader) Run(journalEntriesChannel chan []*sdjournal.JournalEntry) {
+func (r *Reader) Run(entriesChannel chan []*internal.Entry) {
 	// We send chunks rather than single entries through the channel so we can transfer
 	// data more quickly. Premature optimisation something something...
 	// (might do better removing the unnecessary lock from the go journald library)
-	journalEntriesChunk := make([]*sdjournal.JournalEntry, 0, r.journalEntriesInChunk)
+	entriesChunk := make([]*internal.Entry, 0, r.entriesInChunk)
 
 	for {
 		n, err := r.journal.Next()
@@ -54,17 +57,17 @@ func (r *Reader) Run(journalEntriesChannel chan []*sdjournal.JournalEntry) {
 			continue
 		}
 
-		if (n == 0 && len(journalEntriesChunk) > 0) || len(journalEntriesChunk) >= r.journalEntriesInChunk {
-			journalEntriesChannel <- journalEntriesChunk
-			journalEntriesChunk = make([]*sdjournal.JournalEntry, 0, r.journalEntriesInChunk)
+		if (n == 0 && len(entriesChunk) > 0) || len(entriesChunk) >= r.entriesInChunk {
+			entriesChannel <- entriesChunk
+			entriesChunk = make([]*internal.Entry, 0, r.entriesInChunk)
 		}
 
 		if n == 0 {
-			r.journal.Wait(sdjournal.IndefiniteWait)
+			r.journal.Wait(IndefiniteWait)
 			continue
 		}
 
-		entry, err := r.journal.GetEntry()
+		fields, err := r.journal.GetFields()
 		if err != nil {
 			log.Println(err)
 			// TODO
@@ -73,7 +76,7 @@ func (r *Reader) Run(journalEntriesChannel chan []*sdjournal.JournalEntry) {
 
 		// TODO reassembling of CONTAINER_PARTIAL ...
 
-		journalEntriesChunk = append(journalEntriesChunk, entry)
+		entriesChunk = append(entriesChunk, &internal.Entry{Fields: fields})
 	}
 
 }

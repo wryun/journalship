@@ -2,18 +2,6 @@
 
 
 [[projects]]
-  name = "github.com/coreos/go-systemd"
-  packages = ["sdjournal"]
-  revision = "39ca1b05acc7ad1220e09f133283b8859a8b71ab"
-  version = "v17"
-
-[[projects]]
-  name = "github.com/coreos/pkg"
-  packages = ["dlopen"]
-  revision = "97fdf19511ea361ae1c100dd393cc47f8dcfa1e1"
-  version = "v4"
-
-[[projects]]
   name = "github.com/ghodss/yaml"
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
@@ -38,6 +26,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "1d0e5094476f6450cd47972c8c4ca207323a362d970c6bad5898e25265aed10c"
+  inputs-digest = "335301425eeaf441d1c3c65a5e66edc5251be701b289bc8cbd5152597c1fa74f"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -1,2 +1,6 @@
+formatters:
+  - type: jsone
+    template:
+      message: '${fields.MESSAGE}'
 shipper:
   type: file

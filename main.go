@@ -6,9 +6,9 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/coreos/go-systemd/sdjournal"
 	"github.com/ghodss/yaml"
 
+	"github.com/wryun/journalship/internal"
 	"github.com/wryun/journalship/internal/formatters"
 	"github.com/wryun/journalship/internal/reader"
 	"github.com/wryun/journalship/internal/shippers"
@@ -36,19 +36,19 @@ func main() {
 	shipper := configureShipper(config.Shipper)
 	transformer := configureTransformer(config.Transformer, config.Formatters, shipper.NewOutputChunk)
 
-	journalEntriesChannel := make(chan []*sdjournal.JournalEntry)
+	entriesChannel := make(chan []*internal.Entry)
 	outputChunksChannel := make(chan shippers.OutputChunk)
 
 	// TODO formatters should really be a dynamically resizing pool (?)
 	for i := 0; i < config.NumTransformers; i++ {
-		go transformer.Run(journalEntriesChannel, outputChunksChannel)
+		go transformer.Run(entriesChannel, outputChunksChannel)
 	}
 	for i := 0; i < config.NumShippers; i++ {
 		go shipper.Run(outputChunksChannel)
 	}
 
 	// It only makes sense to have one reader due to how journald works.
-	reader.Run(journalEntriesChannel)
+	reader.Run(entriesChannel)
 }
 
 func loadConfig() Config {
