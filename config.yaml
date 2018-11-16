@@ -1,6 +1,9 @@
+reader:
+ fieldNames:
+   - MESSAGE
+   - PRIORITY
 formatters:
   - type: jsone
-    template:
-      message: '${fields.MESSAGE}'
+    template: {$eval: fields}
 shipper:
   type: file

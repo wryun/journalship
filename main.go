@@ -33,21 +33,27 @@ type Plugin struct {
 func main() {
 	config := loadConfig()
 	reader := configureReader(config.Reader)
+	// We only ever have one shipper because we use journald as our
+	// buffer and only want to track one cursor location.
+	// If you want to ship to multiple upstreams, run multiple journalships.
 	shipper := configureShipper(config.Shipper)
 	transformer := configureTransformer(config.Transformer, config.Formatters, shipper.NewOutputChunk)
 
 	entriesChannel := make(chan []*internal.Entry)
 	outputChunksChannel := make(chan shippers.OutputChunk)
 
-	// TODO formatters should really be a dynamically resizing pool (?)
 	for i := 0; i < config.NumTransformers; i++ {
 		go transformer.Run(entriesChannel, outputChunksChannel)
 	}
+	// TODO should really have a dynamically resizing pool here...
+	// (otherwise)
 	for i := 0; i < config.NumShippers; i++ {
 		go shipper.Run(outputChunksChannel)
 	}
 
 	// It only makes sense to have one reader due to how journald works.
+	// (unless we were doing something super complex...)
+	// Also, we're not doing the locks any more...
 	reader.Run(entriesChannel)
 }
 
@@ -83,6 +89,9 @@ func configureShipper(shipperConfig json.RawMessage) shippers.Shipper {
 	var shipperPlugin Plugin
 	if err := json.Unmarshal(shipperConfig, &shipperPlugin); err != nil {
 		log.Fatal(err)
+	}
+	if shipperPlugin.Type == "" {
+		log.Fatal("must specify type of shipper to use")
 	}
 	newShipper, ok := shippers.Shippers[shipperPlugin.Type]
 	if !ok {

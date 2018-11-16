@@ -7,7 +7,6 @@ For some value of simple.
 
 Things:
 
-- field selection (rather than many call enumerate)
 - cursor load/chunk shipped reporting (double counts, list, etc.)
 - CONTAINER_PARTIAL_MESSAGE
 - decide on strategy for unwrapping json in MESSAGE
@@ -17,3 +16,9 @@ Things:
 - assumerole support
 - shutdown logic (clean shutdown, extra channel etc.). Stager?
 - clean up logging, bad error paths
+- dynamically resizing worker pool so, in low-ish volume situations, we don't
+  end up making too many small kinesis requests
+  https://github.com/TomWright/gopool ?
+  https://github.com/dc0d/workerpool ?
+  https://github.com/Comdex/Octopus ?
+  (is there an actually popular one?)

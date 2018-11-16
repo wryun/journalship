@@ -52,9 +52,13 @@ type JournalEntry struct {
 // (locking all the time when we don't need it, etc.) and
 // doesn't return a map[string]interface{} of fields...
 // (we need this for JSON-ish processing)
-func NewJournal() (*C.sd_journal, error) {
+func NewJournal(dataThreshold int) (*C.sd_journal, error) {
 	var j *C.sd_journal
-    r := C.sd_journal_open(&j, C.SD_JOURNAL_LOCAL_ONLY)
+	r := C.sd_journal_open(&j, C.SD_JOURNAL_LOCAL_ONLY)
+	if r < 0 {
+		return nil, translateError(r)
+	}
+	r = C.sd_journal_set_data_threshold(j, C.size_t(dataThreshold))
 	return j, translateError(r)
 }
 
@@ -96,27 +100,56 @@ func (j *C.sd_journal) Next() (uint64, error) {
 	return uint64(r), translateError(r)
 }
 
+func parseField(fieldData *C.char, length C.size_t) (string, string, error) {
+	// https://github.com/liquidm/elastic-journald/blob/master/service.go
+	// has a more complicated approach (regex match), but I think it's equivalent...
+	msg := C.GoStringN(fieldData, C.int(length))
+	kv := strings.SplitN(msg, "=", 2)
+	if len(kv) < 2 {
+		return "", "", fmt.Errorf("failed to parse field: %s", msg)
+	}
+	return kv[0], kv[1], nil
+}
+
+func (j *C.sd_journal) GetField(fieldName string) (*string, error) {
+	var fieldData unsafe.Pointer
+	var length C.size_t
+	cFieldName := C.CString(fieldName)
+	defer C.free(unsafe.Pointer(cFieldName))
+	r := C.sd_journal_get_data(j, cFieldName, &fieldData, &length)
+	if syscall.Errno(-r) == syscall.ENOENT {
+		return nil, nil
+	} else if r < 0 {
+		return nil, translateError(r)
+	}
+	k, v, err := parseField((*C.char)(fieldData), length)
+	if err != nil {
+		return nil, err
+	}
+	if k != fieldName {
+		return nil, fmt.Errorf("asked for %q and got %q", fieldName, k)
+	}
+	return &v, nil
+}
+
 func (j *C.sd_journal) GetFields() (map[string]interface{}, error) {
 	fields := make(map[string]interface{})
-	var d unsafe.Pointer
-	var l C.size_t
+	var fieldData unsafe.Pointer
+	var length C.size_t
 	var r C.int
 	C.sd_journal_restart_data(j)
 	for {
-		r = C.sd_journal_enumerate_data(j, &d, &l)
+		r = C.sd_journal_enumerate_data(j, &fieldData, &length)
 		if r <= 0 {
 			break
 		}
 
-		// https://github.com/liquidm/elastic-journald/blob/master/service.go
-		// has a more complicated approach (regex match), but I think it's equivalent...
-		msg := C.GoStringN((*C.char)(d), C.int(l))
-		kv := strings.SplitN(msg, "=", 2)
-		if len(kv) < 2 {
-			return nil, fmt.Errorf("failed to parse field: %s", msg)
+		k, v, err := parseField((*C.char)(fieldData), length)
+		if err != nil {
+			return nil, err
 		}
 
-		fields[kv[0]] = kv[1]
+		fields[k] = v
 	}
 
 	return fields, translateError(r)
