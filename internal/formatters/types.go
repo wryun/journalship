@@ -10,5 +10,8 @@ type FormatEntry func(*internal.Entry) error
 type FormatConstructor func(json.RawMessage) (FormatEntry, error)
 
 var Formatters = map[string]FormatConstructor{
-	"jsone": NewJsoneFormatter,
+	"jsone":     NewJsoneFormatter,
+	"unmarshal": NewUnmarshalFormatter,
+	"add":       NewAddFormatter,
+	"lowercase": NewLowercaseFormatter,
 }

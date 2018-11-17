@@ -12,11 +12,6 @@ Caveats:
 
 Things:
 
-- add json unwrap formatter
-- add deletion formatter
-- add 'add config' formatter
-- add 'lowercase' formatter
-- add field rename formatter
 - kinesis protobuf encode
 - kinesis shipping
 - assumerole support

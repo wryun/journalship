@@ -2,6 +2,7 @@ package formatters
 
 import (
 	"encoding/json"
+	"errors"
 
 	jsone "github.com/taskcluster/json-e"
 	"github.com/wryun/journalship/internal"
@@ -16,10 +17,16 @@ func NewJsoneFormatter(rawConfig json.RawMessage) (FormatEntry, error) {
 	}
 
 	return func(entry *internal.Entry) error {
-		var err error
-		entry.Fields, err = jsone.Render(config.Template, map[string]interface{}{
+		fields, err := jsone.Render(config.Template, map[string]interface{}{
 			"fields": entry.Fields,
 		})
-		return err
+		if err != nil {
+			return err
+		}
+		var ok bool
+		if entry.Fields, ok = fields.(map[string]interface{}); !ok {
+			return errors.New("JSON-e transform returned non-dictionary")
+		}
+		return nil
 	}, nil
 }

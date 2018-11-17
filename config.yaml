@@ -6,8 +6,14 @@ reader:
   fieldNames:
    - MESSAGE
    - PRIORITY
-#formatters:
-#  - type: jsone
-#    template: {$eval: fields}
+formatters:
+  - type: lowercase
+  - type: unmarshal
+    inputPath: 'message'
+  - type: add
+    fields:
+      service_id: 'rxz1k'
+  - type: jsone
+    template: {$eval: fields}
 shipper:
   type: file

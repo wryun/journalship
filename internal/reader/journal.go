@@ -166,3 +166,14 @@ func (j *C.sd_journal) GetFields() (map[string]interface{}, error) {
 
 	return fields, nil
 }
+
+func (j *C.sd_journal) GetRealtime() (time.Time, error) {
+	microSecs := C.uint64_t(0)
+	r := C.sd_journal_get_realtime_usec(j, &microSecs)
+	if r < 0 {
+		return time.Time{}, translateError("get_realtime_usec", r)
+	}
+	seconds := microSecs / 1000000
+	remainingMicroSecs := microSecs - seconds * 1000000
+	return time.Unix(int64(seconds), int64(1000 * remainingMicroSecs)), nil
+}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"log"
 	"io/ioutil"
+	"time"
 
 	"github.com/wryun/journalship/internal"
 )
@@ -18,6 +19,7 @@ type Reader struct {
 	cursorFile string
 	joinContainerPartial int
 	partialBuffer map[string]*internal.Entry
+	timeField string
 	CursorSaver *CursorSaver
 }
 
@@ -28,12 +30,14 @@ func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 		DataThreshold int `json:"dataThreshold"`
 		FieldNames []string `json:"fieldNames"`
 		JoinContainerPartial int `json:"joinContainerPartial"`
+		TimeField string `json:"timeField"`
 	}{
 		CursorFile: "",
 		EntriesInChunk: 100,
 		DataThreshold: 0,
 		FieldNames: nil,
 		JoinContainerPartial: 0,
+		TimeField: "TIME",
 	}
 	if err := json.Unmarshal(rawConfig, &config); err != nil {
 		return nil, err
@@ -73,6 +77,7 @@ func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 		cursorFile: config.CursorFile,
 		joinContainerPartial: config.JoinContainerPartial,
 		partialBuffer: make(map[string]*internal.Entry),
+		timeField: config.TimeField,
 		CursorSaver: newCursorSaver(config.CursorFile),
 	}, nil
 }
@@ -147,14 +152,12 @@ func (r *Reader) joinEntry(entry *internal.Entry) ([]*internal.Entry, error) {
 	partialMessage := v != nil && *v == "true"
 
 	if existingEntry, ok := r.partialBuffer[*containerID]; ok {
-		entryFields := entry.Fields.(map[string]interface{})
-		existingFields := existingEntry.Fields.(map[string]interface{})
-		proposedMessage := (existingFields["MESSAGE"].(string) +
-			entryFields["MESSAGE"].(string))
+		proposedMessage := (existingEntry.Fields["MESSAGE"].(string) +
+			entry.Fields["MESSAGE"].(string))
 
 		if len(proposedMessage) > r.joinContainerPartial {
-			existingFields["MESSAGE"] = proposedMessage[:r.joinContainerPartial]
-			entryFields["MESSAGE"] = proposedMessage[r.joinContainerPartial:]
+			existingEntry.Fields["MESSAGE"] = proposedMessage[:r.joinContainerPartial]
+			entry.Fields["MESSAGE"] = proposedMessage[r.joinContainerPartial:]
 			if partialMessage {
 				r.partialBuffer[*containerID] = entry
 				return []*internal.Entry{existingEntry}, nil
@@ -165,11 +168,11 @@ func (r *Reader) joinEntry(entry *internal.Entry) ([]*internal.Entry, error) {
 		}
 
 		if partialMessage {
-			existingFields["MESSAGE"] = proposedMessage
+			existingEntry.Fields["MESSAGE"] = proposedMessage
 			return []*internal.Entry{}, nil
 		}
 
-		entryFields["MESSAGE"] = proposedMessage
+		entry.Fields["MESSAGE"] = proposedMessage
 		delete(r.partialBuffer, *containerID)
 		return []*internal.Entry{entry}, nil
 	} else if partialMessage {
@@ -200,5 +203,14 @@ func (r *Reader) readEntry() (*internal.Entry, error) {
 			}
 		}
 	}
+
+	if r.timeField != "" {
+		entryTime, err := r.journal.GetRealtime()
+		if err != nil {
+			log.Fatal(err)
+		}
+		fields[r.timeField] = entryTime.Format(time.RFC3339Nano)
+	}
+
 	return &internal.Entry{Fields: fields}, nil
 }

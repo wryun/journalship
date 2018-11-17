@@ -1,5 +1,5 @@
 package internal
 
 type Entry struct {
-	Fields interface{}
+	Fields map[string]interface{}
 }
