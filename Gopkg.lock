@@ -2,6 +2,35 @@
 
 
 [[projects]]
+  name = "github.com/aws/aws-sdk-go-v2"
+  packages = [
+    "aws",
+    "aws/awserr",
+    "aws/defaults",
+    "aws/ec2metadata",
+    "aws/ec2rolecreds",
+    "aws/endpointcreds",
+    "aws/endpoints",
+    "aws/external",
+    "aws/signer/v4",
+    "aws/stscreds",
+    "internal/awsutil",
+    "internal/ini",
+    "internal/sdk",
+    "private/protocol",
+    "private/protocol/json/jsonutil",
+    "private/protocol/jsonrpc",
+    "private/protocol/query",
+    "private/protocol/query/queryutil",
+    "private/protocol/rest",
+    "private/protocol/xml/xmlutil",
+    "service/kinesis",
+    "service/sts"
+  ]
+  revision = "d52522b5f4b95591ff6528d7c54923951aadf099"
+  version = "v2.0.0-preview.5"
+
+[[projects]]
   name = "github.com/ghodss/yaml"
   packages = ["."]
   revision = "0ca9ea5df5451ffdf184b4428c902747c2c11cd7"
@@ -12,6 +41,11 @@
   packages = ["proto"]
   revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
   version = "v1.2.0"
+
+[[projects]]
+  name = "github.com/jmespath/go-jmespath"
+  packages = ["."]
+  revision = "0b12d6b5"
 
 [[projects]]
   name = "github.com/taskcluster/json-e"
@@ -32,6 +66,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "aa7ea219ca6d9cd801021ac59e0017f2bd9d2568c3e4df07ee68af69fd71d986"
+  inputs-digest = "53522803a9368663b2bc063f8dfa423cf503d0a4af0ab7d0c82bea623dee308c"
   solver-name = "gps-cdcl"
   solver-version = 1

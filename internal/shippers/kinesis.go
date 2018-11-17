@@ -3,11 +3,16 @@ package shippers
 import (
 	"crypto/md5"
 	"encoding/json"
+	"errors"
 	"log"
 	"math/rand"
 	"strconv"
 
-	proto "github.com/golang/protobuf/proto"
+	"github.com/aws/aws-sdk-go-v2/aws/external"
+	"github.com/aws/aws-sdk-go-v2/aws/stscreds"
+	"github.com/aws/aws-sdk-go-v2/service/kinesis"
+	"github.com/aws/aws-sdk-go-v2/service/sts"
+	"github.com/golang/protobuf/proto"
 	"github.com/wryun/journalship/internal/reader"
 )
 
@@ -17,15 +22,36 @@ var (
 
 func NewKinesisShipper(rawConfig json.RawMessage) (Shipper, error) {
 	config := struct {
-		ChunkSize int `json:"chunkSize"`
+		ChunkSize     int    `json:"chunkSize"`
+		Region        string `json:"region"`
+		StreamName    string `json:"streamName"`
+		AssumeRoleArn string `json:"assumeRoleArn"`
 	}{
 		ChunkSize: 200000,
 	}
 	if err := json.Unmarshal(rawConfig, &config); err != nil {
 		return nil, err
 	}
+	if config.Region == "" {
+		return nil, errors.New("must specify region for kinesis")
+	}
+	if config.StreamName == "" {
+		return nil, errors.New("must specify streamName for kinesis")
+	}
+	awsConfig, err := external.LoadDefaultAWSConfig()
+	if err != nil {
+		return nil, err
+	}
+	awsConfig.Region = config.Region
+	if config.AssumeRoleArn != "" {
+		awsConfig.Credentials = stscreds.NewAssumeRoleProvider(
+			sts.New(awsConfig), config.AssumeRoleArn)
+	}
+
 	return &KinesisShipper{
-		chunkSize: config.ChunkSize,
+		chunkSize:  config.ChunkSize,
+		service:    kinesis.New(awsConfig),
+		streamName: config.StreamName,
 	}, nil
 }
 
@@ -48,7 +74,6 @@ func (k *KinesisOutputChunk) Add(entry interface{}) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	// TODO protobuf encode
 	partitionKeyIndex := uint64(0)
 	ag := AggregatedRecord{
 		Records: []*Record{
@@ -80,7 +105,9 @@ func (k *KinesisOutputChunk) makeContainer() []byte {
 }
 
 type KinesisShipper struct {
-	chunkSize int
+	chunkSize  int
+	streamName string
+	service    *kinesis.Kinesis
 }
 
 func (k *KinesisShipper) NewOutputChunk() OutputChunk {
@@ -105,7 +132,24 @@ func (k *KinesisShipper) Run(outputChunksChannel chan OutputChunk, cursorSaver *
 	for {
 		outputChunk := <-outputChunksChannel
 		kinesisOutputChunk := outputChunk.(*KinesisOutputChunk)
-		_ = kinesisOutputChunk.makeContainer()
+		partitionKey := strconv.FormatUint(rand.Uint64(), 36)
+		req := k.service.PutRecordRequest(&kinesis.PutRecordInput{
+			StreamName:   &k.streamName,
+			Data:         kinesisOutputChunk.makeContainer(),
+			PartitionKey: &partitionKey,
+		})
+		for {
+			// TODO Implement shared retry mechanism (somewhere common?)
+			// involving channel...
+			// Could just have a buffer on the channel, which would allow
+			// us to push back? (and add some kind of 'sleep' to it?)
+			// Regenerate partition key?
+			if _, err := req.Send(); err == nil {
+				break
+			} else {
+				log.Println(err)
+			}
+		}
 		cursorSaver.ReportCompleted(kinesisOutputChunk.readerChunkIDs)
 	}
 }

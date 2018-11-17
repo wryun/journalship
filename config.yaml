@@ -17,3 +17,5 @@ formatters:
     template: {$eval: fields}
 shipper:
   type: kinesis
+  region: 'us-west-1'
+  streamName: 'arn:aws:kinesis:us-west-1111122223333:stream/my-stream'
