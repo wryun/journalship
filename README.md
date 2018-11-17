@@ -3,13 +3,20 @@
 WIP completely non-working stuff that's intended to be a simple
 'I want to push journald logs to an external system'.
 
+
 For some value of simple.
+
+Caveats:
+- CONTAINER_PARTIAL_MESSAGE not correctly updating cursor
+- https://github.com/moby/moby/issues/38045 (>18.03 ... fixed at 18.10?)
 
 Things:
 
-- CONTAINER_PARTIAL_MESSAGE
-- decide on strategy for unwrapping json in MESSAGE
-  (separate formatter, or add a useful function to jsone)
+- add json unwrap formatter
+- add deletion formatter
+- add 'add config' formatter
+- add 'lowercase' formatter
+- add field rename formatter
 - kinesis protobuf encode
 - kinesis shipping
 - assumerole support

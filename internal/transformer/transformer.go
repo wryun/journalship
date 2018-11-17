@@ -77,6 +77,13 @@ func (t *Transformer) Run(inputChunksChannel chan reader.InputChunk, cursorSaver
 					// TODO
 					log.Println(err)
 				}
+				if entry.Fields == nil {
+					break
+				}
+			}
+
+			if entry.Fields == nil {
+				continue
 			}
 
 			added, err := outputChunk.Add(entry.Fields)

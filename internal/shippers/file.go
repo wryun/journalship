@@ -15,7 +15,7 @@ func NewFileShipper(rawConfig json.RawMessage) (Shipper, error) {
 		FileName    string `json:"fileName"`
 		PrettyPrint int    `json:"prettyPrint"`
 	}{
-		ChunkSize:   4000,
+		ChunkSize:   200000,
 		PrettyPrint: 0,
 		FileName:    "", // default to stdout
 	}

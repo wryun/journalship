@@ -16,6 +16,8 @@ type Reader struct {
 	entriesInChunk int
 	fieldNames []string
 	cursorFile string
+	joinContainerPartial int
+	partialBuffer map[string]*internal.Entry
 	CursorSaver *CursorSaver
 }
 
@@ -25,11 +27,13 @@ func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 		EntriesInChunk int    `json:"entriesInChunk"`
 		DataThreshold int `json:"dataThreshold"`
 		FieldNames []string `json:"fieldNames"`
+		JoinContainerPartial int `json:"joinContainerPartial"`
 	}{
 		CursorFile: "",
 		EntriesInChunk: 100,
 		DataThreshold: 0,
 		FieldNames: nil,
+		JoinContainerPartial: 0,
 	}
 	if err := json.Unmarshal(rawConfig, &config); err != nil {
 		return nil, err
@@ -62,13 +66,13 @@ func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 		log.Print("starting at beginning")
 	}
 
-
-
 	return &Reader{
 		journal: journal,
 		entriesInChunk: config.EntriesInChunk,
 		fieldNames: config.FieldNames,
 		cursorFile: config.CursorFile,
+		joinContainerPartial: config.JoinContainerPartial,
+		partialBuffer: make(map[string]*internal.Entry),
 		CursorSaver: newCursorSaver(config.CursorFile),
 	}, nil
 }
@@ -111,11 +115,69 @@ func (r *Reader) Run(inputChunksChannel chan InputChunk) {
 			continue
 		}
 
-		// TODO reassembling of CONTAINER_PARTIAL ...
+		if r.joinContainerPartial == 0 {
+			inputChunk.addEntry(entry)
+		} else {
+			entries, err := r.joinEntry(entry)
+			if err != nil {
+				log.Printf("dropped entry: %s", err)
+				// TODO
+				continue
+			}
+			for _, entry := range entries {
+				inputChunk.addEntry(entry)
+			}
+		}
+	}
+}
 
-		inputChunk.addEntry(entry)
+func (r *Reader) joinEntry(entry *internal.Entry) ([]*internal.Entry, error) {
+	containerID, err := r.journal.GetField("CONTAINER_ID_FULL")
+	if err != nil {
+		return nil, err
+	}
+	if containerID == nil {
+		return []*internal.Entry{entry}, nil
 	}
 
+	v, err := r.journal.GetField("CONTAINER_PARTIAL_MESSAGE")
+	if err != nil {
+		return nil, err
+	}
+	partialMessage := v != nil && *v == "true"
+
+	if existingEntry, ok := r.partialBuffer[*containerID]; ok {
+		entryFields := entry.Fields.(map[string]interface{})
+		existingFields := existingEntry.Fields.(map[string]interface{})
+		proposedMessage := (existingFields["MESSAGE"].(string) +
+			entryFields["MESSAGE"].(string))
+
+		if len(proposedMessage) > r.joinContainerPartial {
+			existingFields["MESSAGE"] = proposedMessage[:r.joinContainerPartial]
+			entryFields["MESSAGE"] = proposedMessage[r.joinContainerPartial:]
+			if partialMessage {
+				r.partialBuffer[*containerID] = entry
+				return []*internal.Entry{existingEntry}, nil
+			}
+
+			delete(r.partialBuffer, *containerID)
+			return []*internal.Entry{existingEntry, entry}, nil
+		}
+
+		if partialMessage {
+			existingFields["MESSAGE"] = proposedMessage
+			return []*internal.Entry{}, nil
+		}
+
+		entryFields["MESSAGE"] = proposedMessage
+		delete(r.partialBuffer, *containerID)
+		return []*internal.Entry{entry}, nil
+	} else if partialMessage {
+		r.partialBuffer[*containerID] = entry
+		return []*internal.Entry{}, nil
+	}
+
+	return []*internal.Entry{entry}, nil
 }
 
 func (r *Reader) readEntry() (*internal.Entry, error) {

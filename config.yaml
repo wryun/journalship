@@ -1,12 +1,13 @@
 numShippers: 2
 numTransformers: 2
 reader:
+  joinContainerPartial: 180000
   cursorFile: "journal.cursor"
   fieldNames:
    - MESSAGE
    - PRIORITY
-formatters:
-  - type: jsone
-    template: {$eval: fields}
+#formatters:
+#  - type: jsone
+#    template: {$eval: fields}
 shipper:
   type: file
