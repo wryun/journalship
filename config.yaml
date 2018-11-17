@@ -16,4 +16,4 @@ formatters:
   - type: jsone
     template: {$eval: fields}
 shipper:
-  type: file
+  type: kinesis

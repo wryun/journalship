@@ -8,6 +8,12 @@
   version = "v1.0.0"
 
 [[projects]]
+  name = "github.com/golang/protobuf"
+  packages = ["proto"]
+  revision = "aa810b61a9c79d51363740d207bb46cf8e620ed5"
+  version = "v1.2.0"
+
+[[projects]]
   name = "github.com/taskcluster/json-e"
   packages = [
     ".",
@@ -26,6 +32,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "335301425eeaf441d1c3c65a5e66edc5251be701b289bc8cbd5152597c1fa74f"
+  inputs-digest = "aa7ea219ca6d9cd801021ac59e0017f2bd9d2568c3e4df07ee68af69fd71d986"
   solver-name = "gps-cdcl"
   solver-version = 1

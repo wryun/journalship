@@ -5,6 +5,8 @@ import (
 	"flag"
 	"io/ioutil"
 	"log"
+	"math/rand"
+	"time"
 
 	"github.com/ghodss/yaml"
 
@@ -30,6 +32,7 @@ type Plugin struct {
 }
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
 	config := loadConfig()
 	rdr := configureReader(config.Reader)
 	// We only ever have one shipper because we use journald as our

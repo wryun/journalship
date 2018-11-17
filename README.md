@@ -12,7 +12,6 @@ Caveats:
 
 Things:
 
-- kinesis protobuf encode
 - kinesis shipping
 - assumerole support
 - shutdown logic (clean shutdown, extra channel etc.). Stager?
