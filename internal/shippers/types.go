@@ -2,6 +2,8 @@ package shippers
 
 import (
 	"encoding/json"
+
+	"github.com/wryun/journalship/internal/reader"
 )
 
 type ShipperConstructor func(json.RawMessage) (Shipper, error)
@@ -14,6 +16,7 @@ var Shippers = map[string]ShipperConstructor{
 type OutputChunk interface {
 	IsEmpty() bool
 	Add(interface{}) (bool, error)
+	AddChunkID(*reader.ChunkID)
 }
 
 // Shipper allows shippers to control how their chunks are generated, in
@@ -22,5 +25,5 @@ type OutputChunk interface {
 // to ship a chunk).
 type Shipper interface {
 	NewOutputChunk() OutputChunk
-	Run(chan OutputChunk)
+	Run(chan OutputChunk, *reader.CursorSaver)
 }

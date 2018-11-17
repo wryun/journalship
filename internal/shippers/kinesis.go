@@ -3,6 +3,8 @@ package shippers
 import (
 	"encoding/json"
 	"log"
+
+	"github.com/wryun/journalship/internal/reader"
 )
 
 func NewKinesisShipper(rawConfig json.RawMessage) (Shipper, error) {
@@ -20,8 +22,13 @@ func NewKinesisShipper(rawConfig json.RawMessage) (Shipper, error) {
 }
 
 type KinesisOutputChunk struct {
-	contents  []byte
-	chunkSize int
+	contents       []byte
+	chunkSize      int
+	readerChunkIDs []reader.ChunkID
+}
+
+func (k *KinesisOutputChunk) AddChunkID(chunkID *reader.ChunkID) {
+	k.readerChunkIDs = append(k.readerChunkIDs, *chunkID)
 }
 
 func (k *KinesisOutputChunk) IsEmpty() bool {
@@ -54,9 +61,11 @@ func (k *KinesisShipper) NewOutputChunk() OutputChunk {
 	}
 }
 
-func (k *KinesisShipper) Run(outputChunksChannel chan OutputChunk) {
+func (k *KinesisShipper) Run(outputChunksChannel chan OutputChunk, cursorSaver *reader.CursorSaver) {
 	for {
-		_ = <-outputChunksChannel
+		outputChunk := <-outputChunksChannel
 		log.Println("Got some chunks!")
+		kinesisOutputChunk := outputChunk.(*KinesisOutputChunk)
+		cursorSaver.ReportCompleted(kinesisOutputChunk.readerChunkIDs)
 	}
 }

@@ -8,7 +8,6 @@ import (
 
 	"github.com/ghodss/yaml"
 
-	"github.com/wryun/journalship/internal"
 	"github.com/wryun/journalship/internal/formatters"
 	"github.com/wryun/journalship/internal/reader"
 	"github.com/wryun/journalship/internal/shippers"
@@ -32,29 +31,30 @@ type Plugin struct {
 
 func main() {
 	config := loadConfig()
-	reader := configureReader(config.Reader)
+	rdr := configureReader(config.Reader)
 	// We only ever have one shipper because we use journald as our
 	// buffer and only want to track one cursor location.
 	// If you want to ship to multiple upstreams, run multiple journalships.
 	shipper := configureShipper(config.Shipper)
 	transformer := configureTransformer(config.Transformer, config.Formatters, shipper.NewOutputChunk)
 
-	entriesChannel := make(chan []*internal.Entry)
+	inputChunksChannel := make(chan reader.InputChunk)
 	outputChunksChannel := make(chan shippers.OutputChunk)
 
 	for i := 0; i < config.NumTransformers; i++ {
-		go transformer.Run(entriesChannel, outputChunksChannel)
+		go transformer.Run(inputChunksChannel, rdr.CursorSaver, outputChunksChannel)
 	}
 	// TODO should really have a dynamically resizing pool here...
 	// (otherwise)
 	for i := 0; i < config.NumShippers; i++ {
-		go shipper.Run(outputChunksChannel)
+		go shipper.Run(outputChunksChannel, rdr.CursorSaver)
 	}
 
 	// It only makes sense to have one reader due to how journald works.
 	// (unless we were doing something super complex...)
-	// Also, we're not doing the locks any more...
-	reader.Run(entriesChannel)
+	// Also, unlike the coreos journald library, we don't use mutexes
+	// on the C calls (i.e. it's not thread safe).
+	rdr.Run(inputChunksChannel)
 }
 
 func loadConfig() Config {

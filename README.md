@@ -7,7 +7,6 @@ For some value of simple.
 
 Things:
 
-- cursor load/chunk shipped reporting (double counts, list, etc.)
 - CONTAINER_PARTIAL_MESSAGE
 - decide on strategy for unwrapping json in MESSAGE
   (separate formatter, or add a useful function to jsone)

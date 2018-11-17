@@ -5,6 +5,8 @@ import (
 	"io"
 	"os"
 	"strings"
+
+	"github.com/wryun/journalship/internal/reader"
 )
 
 func NewFileShipper(rawConfig json.RawMessage) (Shipper, error) {
@@ -36,13 +38,18 @@ func NewFileShipper(rawConfig json.RawMessage) (Shipper, error) {
 }
 
 type FileOutputChunk struct {
-	contents    []byte
-	chunkSize   int
-	prettyPrint int
+	contents       []byte
+	chunkSize      int
+	prettyPrint    int
+	readerChunkIDs []reader.ChunkID
+}
+
+func (fc *FileOutputChunk) AddChunkID(chunkID *reader.ChunkID) {
+	fc.readerChunkIDs = append(fc.readerChunkIDs, *chunkID)
 }
 
 func (fc *FileOutputChunk) IsEmpty() bool {
-	return len(fc.contents) > 0
+	return len(fc.contents) == 0
 }
 
 func (fc *FileOutputChunk) Add(entry interface{}) (bool, error) {
@@ -80,7 +87,7 @@ func (fs *FileShipper) NewOutputChunk() OutputChunk {
 	}
 }
 
-func (fs *FileShipper) Run(outputChunksChannel chan OutputChunk) {
+func (fs *FileShipper) Run(outputChunksChannel chan OutputChunk, cursorSaver *reader.CursorSaver) {
 	defer fs.out.Close()
 
 	for {
@@ -90,5 +97,6 @@ func (fs *FileShipper) Run(outputChunksChannel chan OutputChunk) {
 		}
 		fileOutputChunk := outputChunk.(*FileOutputChunk)
 		fs.out.Write(fileOutputChunk.contents)
+		cursorSaver.ReportCompleted(fileOutputChunk.readerChunkIDs)
 	}
 }

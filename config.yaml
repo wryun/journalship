@@ -1,5 +1,8 @@
+numShippers: 2
+numTransformers: 2
 reader:
- fieldNames:
+  cursorFile: "journal.cursor"
+  fieldNames:
    - MESSAGE
    - PRIORITY
 formatters:

@@ -15,6 +15,7 @@
 
 // Based on https://github.com/coreos/go-systemd/blob/master/sdjournal/journal.go
 // and https://github.com/liquidm/elastic-journald/blob/master/service.go
+
 package reader
 
 // #include <stdio.h>
@@ -37,11 +38,11 @@ const (
 	// sdjournal.Wait() to signal an indefinite wait for new journal
 	// events. It is implemented as the maximum value for a time.Duration:
 	// https://github.com/golang/go/blob/e4dcf5c8c22d98ac9eac7b9b226596229624cb1d/src/time/time.go#L434
-	IndefiniteWait time.Duration = 1<<63 - 1
+	indefiniteWait time.Duration = 1<<63 - 1
 
-	SD_JOURNAL_NOP        = int(C.SD_JOURNAL_NOP)
-	SD_JOURNAL_APPEND     = int(C.SD_JOURNAL_APPEND)
-	SD_JOURNAL_INVALIDATE = int(C.SD_JOURNAL_INVALIDATE)
+	journalNop        = int(C.SD_JOURNAL_NOP)
+	journalAppend     = int(C.SD_JOURNAL_APPEND)
+	journalInvalidate = int(C.SD_JOURNAL_INVALIDATE)
 )
 
 type JournalEntry struct {
@@ -56,33 +57,42 @@ func NewJournal(dataThreshold int) (*C.sd_journal, error) {
 	var j *C.sd_journal
 	r := C.sd_journal_open(&j, C.SD_JOURNAL_LOCAL_ONLY)
 	if r < 0 {
-		return nil, translateError(r)
+		return nil, translateError("sd_journal_open", r)
 	}
 	r = C.sd_journal_set_data_threshold(j, C.size_t(dataThreshold))
-	return j, translateError(r)
+	return j, translateError("set_data_threshold", r)
 }
 
-func translateError(r C.int) error {
+func translateError(f string, r C.int) error {
     if r < 0 {
-       return fmt.Errorf("failed to open journal: %d", syscall.Errno(-r)) 
+       return fmt.Errorf("error calling sd_journal_%s: %d", f, syscall.Errno(-r)) 
 	}
 	return nil
 }
 
 func (j *C.sd_journal) SeekHead() error {
-	return translateError(C.sd_journal_seek_head(j))
+	return translateError("seek_head", C.sd_journal_seek_head(j))
 }
 
 func (j *C.sd_journal) SeekCursor(cursor string) error {
 	c := C.CString(cursor)
 	defer C.free(unsafe.Pointer(c))
-	return translateError(C.sd_journal_seek_cursor(j, c))
+	return translateError("seek_cursor", C.sd_journal_seek_cursor(j, c))
+}
+
+func (j *C.sd_journal) GetCursor() (string, error) {
+	var cursor *C.char
+	r := C.sd_journal_get_cursor(j, &cursor)
+	if r < 0 {
+		return "", translateError("get_cursor", r)
+	}
+	return string(C.GoString(cursor)), nil
 }
 
 func (j *C.sd_journal) Wait(timeout time.Duration) (int, error) {
 	var to uint64
 
-	if timeout == IndefiniteWait {
+	if timeout == indefiniteWait {
 		// sd_journal_wait(3) calls for a (uint64_t) -1 to be passed to signify
 		// indefinite wait, but using a -1 overflows our C.uint64_t, so we use an
 		// equivalent hex value.
@@ -92,12 +102,12 @@ func (j *C.sd_journal) Wait(timeout time.Duration) (int, error) {
 	}
 
 	r := C.sd_journal_wait(j, C.uint64_t(to))
-	return int(r), translateError(r)
+	return int(r), translateError("wait", r)
 }
 
 func (j *C.sd_journal) Next() (uint64, error) {
 	r := C.sd_journal_next(j)
-	return uint64(r), translateError(r)
+	return uint64(r), translateError("next", r)
 }
 
 func parseField(fieldData *C.char, length C.size_t) (string, string, error) {
@@ -120,14 +130,14 @@ func (j *C.sd_journal) GetField(fieldName string) (*string, error) {
 	if syscall.Errno(-r) == syscall.ENOENT {
 		return nil, nil
 	} else if r < 0 {
-		return nil, translateError(r)
+		return nil, translateError("get_data", r)
 	}
 	k, v, err := parseField((*C.char)(fieldData), length)
 	if err != nil {
 		return nil, err
 	}
 	if k != fieldName {
-		return nil, fmt.Errorf("asked for %q and got %q", fieldName, k)
+		return nil, fmt.Errorf("asked for %q and got %q from sd_journal_get_data", fieldName, k)
 	}
 	return &v, nil
 }
@@ -140,7 +150,9 @@ func (j *C.sd_journal) GetFields() (map[string]interface{}, error) {
 	C.sd_journal_restart_data(j)
 	for {
 		r = C.sd_journal_enumerate_data(j, &fieldData, &length)
-		if r <= 0 {
+		if r < 0 {
+			return nil, translateError("enumerate_data", r)
+		} else if r == 0 {
 			break
 		}
 
@@ -152,5 +164,5 @@ func (j *C.sd_journal) GetFields() (map[string]interface{}, error) {
 		fields[k] = v
 	}
 
-	return fields, translateError(r)
+	return fields, nil
 }

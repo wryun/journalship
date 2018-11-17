@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/wryun/journalship/internal"
 	"github.com/wryun/journalship/internal/formatters"
+	"github.com/wryun/journalship/internal/reader"
 	"github.com/wryun/journalship/internal/shippers"
 )
 
@@ -42,30 +42,36 @@ func makeTimeout(duration time.Duration) chan bool {
 	return timeout
 }
 
-func (t *Transformer) Run(journalEntriesChannel chan []*internal.Entry, outputChunksChannel chan shippers.OutputChunk) {
-	chunk := t.newOutputChunk()
+func addChunkID(outputChunk shippers.OutputChunk, chunkID *reader.ChunkID) {
+	if chunkID != nil {
+		outputChunk.AddChunkID(chunkID)
+	}
+}
+
+func (t *Transformer) Run(inputChunksChannel chan reader.InputChunk, cursorSaver *reader.CursorSaver, outputChunksChannel chan shippers.OutputChunk) {
+	outputChunk := t.newOutputChunk()
 	lastShipTime := time.Now()
 
 	shipChunk := func() {
-		outputChunksChannel <- chunk
-		chunk = t.newOutputChunk()
+		outputChunksChannel <- outputChunk
+		outputChunk = t.newOutputChunk()
 		lastShipTime = time.Now()
 	}
 
 	for {
-		var entries []*internal.Entry
-		if !chunk.IsEmpty() {
+		var inputChunk reader.InputChunk
+		if outputChunk.IsEmpty() {
+			inputChunk = <-inputChunksChannel
+		} else {
 			select {
+			case inputChunk = <-inputChunksChannel:
 			case <-makeTimeout(t.maxLogDelay - time.Now().Sub(lastShipTime)):
 				shipChunk()
 				continue
-			case entries = <-journalEntriesChannel:
 			}
-		} else {
-			entries = <-journalEntriesChannel
 		}
 
-		for _, entry := range entries {
+		for _, entry := range inputChunk.GetEntries() {
 			for _, formatFn := range t.formatFns {
 				if err := formatFn(entry); err != nil {
 					// TODO
@@ -73,7 +79,7 @@ func (t *Transformer) Run(journalEntriesChannel chan []*internal.Entry, outputCh
 				}
 			}
 
-			added, err := chunk.Add(entry.Fields)
+			added, err := outputChunk.Add(entry.Fields)
 			if err != nil {
 				// TODO
 				log.Println(err)
@@ -83,8 +89,16 @@ func (t *Transformer) Run(journalEntriesChannel chan []*internal.Entry, outputCh
 				continue
 			}
 
-			shipChunk()
-			added, err = chunk.Add(entry.Fields)
+			if !outputChunk.IsEmpty() {
+				addChunkID(outputChunk, inputChunk.ID())
+				// this is still in flight, so add another entry to
+				// our reported tracking (so we don't accidentally complete
+				// this early)
+				cursorSaver.ReportInFlight(inputChunk.ID())
+				shipChunk()
+			}
+
+			added, err = outputChunk.Add(entry.Fields)
 			if err != nil {
 				// TODO
 				log.Println(err)
@@ -92,6 +106,16 @@ func (t *Transformer) Run(journalEntriesChannel chan []*internal.Entry, outputCh
 				// TODO
 				log.Println("single log entry too large!")
 			}
+		}
+
+		if outputChunk.IsEmpty() {
+			// In whatever was left of this inputChunk, we didn't add
+			// anything to our outputChunk, so we misreported that it
+			// was in flight (i.e. must report it complete now so it
+			// doesn't block everything up...)
+			cursorSaver.ReportCompleted([]reader.ChunkID{*inputChunk.ID()})
+		} else {
+			addChunkID(outputChunk, inputChunk.ID())
 		}
 	}
 }
