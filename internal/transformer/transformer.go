@@ -42,9 +42,9 @@ func makeTimeout(duration time.Duration) chan bool {
 	return timeout
 }
 
-func addChunkID(outputChunk shippers.OutputChunk, chunkID *reader.ChunkID) {
-	if chunkID != nil {
-		outputChunk.AddChunkID(chunkID)
+func addChunkID(outputChunk shippers.OutputChunk, id uint64) {
+	if id != 0 {
+		outputChunk.AddChunkID(id)
 	}
 }
 
@@ -97,7 +97,7 @@ func (t *Transformer) Run(inputChunksChannel chan reader.InputChunk, cursorSaver
 			}
 
 			if !outputChunk.IsEmpty() {
-				addChunkID(outputChunk, inputChunk.ID())
+				addChunkID(outputChunk, inputChunk.IntID())
 				// this is still in flight, so add another entry to
 				// our reported tracking (so we don't accidentally complete
 				// this early)
@@ -120,9 +120,9 @@ func (t *Transformer) Run(inputChunksChannel chan reader.InputChunk, cursorSaver
 			// anything to our outputChunk, so we misreported that it
 			// was in flight (i.e. must report it complete now so it
 			// doesn't block everything up...)
-			cursorSaver.ReportCompleted([]reader.ChunkID{*inputChunk.ID()})
+			cursorSaver.ReportCompleted([]uint64{inputChunk.IntID()})
 		} else {
-			addChunkID(outputChunk, inputChunk.ID())
+			addChunkID(outputChunk, inputChunk.IntID())
 		}
 	}
 }

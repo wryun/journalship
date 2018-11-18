@@ -2,8 +2,6 @@ package shippers
 
 import (
 	"encoding/json"
-
-	"github.com/wryun/journalship/internal/reader"
 )
 
 type ShipperConstructor func(json.RawMessage) (Shipper, error)
@@ -16,7 +14,8 @@ var Shippers = map[string]ShipperConstructor{
 type OutputChunk interface {
 	IsEmpty() bool
 	Add(interface{}) (bool, error)
-	AddChunkID(*reader.ChunkID)
+	AddChunkID(uint64)
+	GetChunkIDs() []uint64
 }
 
 // Shipper allows shippers to control how their chunks are generated, in
@@ -25,5 +24,11 @@ type OutputChunk interface {
 // to ship a chunk).
 type Shipper interface {
 	NewOutputChunk() OutputChunk
-	Run(chan OutputChunk, *reader.CursorSaver)
+	Instance() ShipperInstance
+}
+
+// ShipperInstances allow us (if we want) to have a separate config
+// for each goroutine.
+type ShipperInstance interface {
+	Ship(OutputChunk) error
 }

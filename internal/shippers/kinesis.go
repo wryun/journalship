@@ -13,7 +13,6 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/kinesis"
 	"github.com/aws/aws-sdk-go-v2/service/sts"
 	"github.com/golang/protobuf/proto"
-	"github.com/wryun/journalship/internal/reader"
 )
 
 var (
@@ -58,11 +57,15 @@ func NewKinesisShipper(rawConfig json.RawMessage) (Shipper, error) {
 type KinesisOutputChunk struct {
 	contents       []byte
 	chunkSize      int
-	readerChunkIDs []reader.ChunkID
+	readerChunkIDs []uint64
 }
 
-func (k *KinesisOutputChunk) AddChunkID(chunkID *reader.ChunkID) {
-	k.readerChunkIDs = append(k.readerChunkIDs, *chunkID)
+func (k *KinesisOutputChunk) AddChunkID(chunkID uint64) {
+	k.readerChunkIDs = append(k.readerChunkIDs, chunkID)
+}
+
+func (k *KinesisOutputChunk) GetChunkIDs() []uint64 {
+	return k.readerChunkIDs
 }
 
 func (k *KinesisOutputChunk) IsEmpty() bool {
@@ -128,28 +131,18 @@ func (k *KinesisShipper) NewOutputChunk() OutputChunk {
 	}
 }
 
-func (k *KinesisShipper) Run(outputChunksChannel chan OutputChunk, cursorSaver *reader.CursorSaver) {
-	for {
-		outputChunk := <-outputChunksChannel
-		kinesisOutputChunk := outputChunk.(*KinesisOutputChunk)
-		partitionKey := strconv.FormatUint(rand.Uint64(), 36)
-		req := k.service.PutRecordRequest(&kinesis.PutRecordInput{
-			StreamName:   &k.streamName,
-			Data:         kinesisOutputChunk.makeContainer(),
-			PartitionKey: &partitionKey,
-		})
-		for {
-			// TODO Implement shared retry mechanism (somewhere common?)
-			// involving channel...
-			// Could just have a buffer on the channel, which would allow
-			// us to push back? (and add some kind of 'sleep' to it?)
-			// Regenerate partition key?
-			if _, err := req.Send(); err == nil {
-				break
-			} else {
-				log.Println(err)
-			}
-		}
-		cursorSaver.ReportCompleted(kinesisOutputChunk.readerChunkIDs)
-	}
+func (k *KinesisShipper) Instance() ShipperInstance {
+	return k
+}
+
+func (k *KinesisShipper) Ship(outputChunk OutputChunk) error {
+	kinesisOutputChunk := outputChunk.(*KinesisOutputChunk)
+	partitionKey := strconv.FormatUint(rand.Uint64(), 36)
+	req := k.service.PutRecordRequest(&kinesis.PutRecordInput{
+		StreamName:   &k.streamName,
+		Data:         kinesisOutputChunk.makeContainer(),
+		PartitionKey: &partitionKey,
+	})
+	_, err := req.Send()
+	return err
 }

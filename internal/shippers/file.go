@@ -5,8 +5,7 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/wryun/journalship/internal/reader"
+	"sync"
 )
 
 func NewFileShipper(rawConfig json.RawMessage) (Shipper, error) {
@@ -41,11 +40,15 @@ type FileOutputChunk struct {
 	contents       []byte
 	chunkSize      int
 	prettyPrint    int
-	readerChunkIDs []reader.ChunkID
+	readerChunkIDs []uint64
 }
 
-func (fc *FileOutputChunk) AddChunkID(chunkID *reader.ChunkID) {
-	fc.readerChunkIDs = append(fc.readerChunkIDs, *chunkID)
+func (fc *FileOutputChunk) AddChunkID(chunkID uint64) {
+	fc.readerChunkIDs = append(fc.readerChunkIDs, chunkID)
+}
+
+func (fc *FileOutputChunk) GetChunkIDs() []uint64 {
+	return fc.readerChunkIDs
 }
 
 func (fc *FileOutputChunk) IsEmpty() bool {
@@ -77,6 +80,7 @@ type FileShipper struct {
 	chunkSize   int
 	prettyPrint int
 	out         io.WriteCloser
+	mutex       sync.Mutex
 }
 
 func (fs *FileShipper) NewOutputChunk() OutputChunk {
@@ -87,16 +91,15 @@ func (fs *FileShipper) NewOutputChunk() OutputChunk {
 	}
 }
 
-func (fs *FileShipper) Run(outputChunksChannel chan OutputChunk, cursorSaver *reader.CursorSaver) {
-	defer fs.out.Close()
+func (fs *FileShipper) Instance() ShipperInstance {
+	return fs
+}
 
-	for {
-		outputChunk := <-outputChunksChannel
-		if outputChunk == nil {
-			break
-		}
-		fileOutputChunk := outputChunk.(*FileOutputChunk)
-		fs.out.Write(fileOutputChunk.contents)
-		cursorSaver.ReportCompleted(fileOutputChunk.readerChunkIDs)
-	}
+func (fs *FileShipper) Ship(outputChunk OutputChunk) error {
+	// TODO fs.out.Close() (need more features...)
+	fileOutputChunk := outputChunk.(*FileOutputChunk)
+	fs.mutex.Lock()
+	defer fs.mutex.Unlock()
+	_, err := fs.out.Write(fileOutputChunk.contents)
+	return err
 }

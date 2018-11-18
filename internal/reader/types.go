@@ -5,7 +5,7 @@ import (
 )
 
 type ChunkID struct {
-	order  uint64
+	id     uint64
 	cursor string
 }
 
@@ -36,6 +36,10 @@ func (ic *InputChunk) addEntry(entry *internal.Entry) {
 
 func (ic *InputChunk) ID() *ChunkID {
 	return &ic.id
+}
+
+func (ic *InputChunk) IntID() uint64 {
+	return ic.id.id
 }
 
 func (ic *InputChunk) GetEntries() []*internal.Entry {

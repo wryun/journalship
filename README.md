@@ -9,6 +9,9 @@ For some value of simple.
 
 - test kinesis shipping/assumerole/protobuf
 - generic retry/backoff support (?)
+- logger which caps error messages
+  (so we can safely push arbitrary stuff into logger)
+  AND add error messages back into formatters for some cases (?)
 
 ## Not fixing
 
@@ -19,6 +22,10 @@ For some value of simple.
 
 - unit tests
 - e2e tests
+- logic bug when join partials but no message selected in fields
+- use an interface for formatter?
+- could probably improve speed by moving the lowercase/rename functionality
+  into the initial processing (i.e. field selection with naming)
 - prometheus metrics endpoint (in particular, for throttling/retry/whatever)
 - shutdown logic (clean shutdown, extra channel etc.). Stager?
 - clean up logging, bad error paths

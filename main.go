@@ -14,17 +14,20 @@ import (
 	"github.com/wryun/journalship/internal/reader"
 	"github.com/wryun/journalship/internal/shippers"
 	"github.com/wryun/journalship/internal/transformer"
+	"github.com/wryun/journalship/internal/writer"
 )
 
 type Config struct {
 	NumTransformers int `json:"numTransformers"`
 	NumShippers     int `json:"numShippers"`
 
-	Transformer json.RawMessage `json:"transformer"`
-	Reader      json.RawMessage `json:"reader"`
+	Reader json.RawMessage `json:"reader"`
 
-	Shipper    json.RawMessage   `json:"shipper"`
-	Formatters []json.RawMessage `json:"formatters"`
+	Transformer json.RawMessage   `json:"transformer"`
+	Formatters  []json.RawMessage `json:"formatters"`
+
+	Writer  json.RawMessage `json:"writer"`
+	Shipper json.RawMessage `json:"shipper"`
 }
 
 type Plugin struct {
@@ -35,6 +38,7 @@ func main() {
 	rand.Seed(time.Now().UnixNano())
 	config := loadConfig()
 	rdr := configureReader(config.Reader)
+	writer := configureWriter(config.Writer)
 	// We only ever have one shipper because we use journald as our
 	// buffer and only want to track one cursor location.
 	// If you want to ship to multiple upstreams, run multiple journalships.
@@ -50,7 +54,8 @@ func main() {
 	// TODO should really have a dynamically resizing pool here...
 	// (otherwise)
 	for i := 0; i < config.NumShippers; i++ {
-		go shipper.Run(outputChunksChannel, rdr.CursorSaver)
+		// TODO a new shipper
+		go writer.Run(shipper.Instance(), outputChunksChannel, rdr.CursorSaver)
 	}
 
 	// It only makes sense to have one reader due to how journald works.
@@ -79,6 +84,7 @@ func loadConfig() Config {
 		Transformer:     []byte("{}"),
 		Reader:          []byte("{}"),
 		Shipper:         []byte("{}"),
+		Writer:          []byte("{}"),
 		Formatters:      []json.RawMessage{},
 	}
 	if err := yaml.Unmarshal(configFile, &config); err != nil {
@@ -138,4 +144,12 @@ func configureReader(readerConfig json.RawMessage) *reader.Reader {
 		log.Fatal(err)
 	}
 	return reader
+}
+
+func configureWriter(writerConfig json.RawMessage) *writer.Writer {
+	writer, err := writer.NewWriter(writerConfig)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return writer
 }

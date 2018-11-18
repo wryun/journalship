@@ -33,7 +33,7 @@ func NewReader(rawConfig json.RawMessage) (*Reader, error) {
 		TimeField string `json:"timeField"`
 	}{
 		CursorFile: "",
-		EntriesInChunk: 100,
+		EntriesInChunk: 1000,
 		DataThreshold: 0,
 		FieldNames: nil,
 		JoinContainerPartial: 0,
@@ -86,7 +86,7 @@ func (r *Reader) Run(inputChunksChannel chan InputChunk) {
 	// We send chunks rather than single entries through the channel so we can transfer
 	// data more quickly. Premature optimisation something something...
 	inputChunk := NewInputChunk(r.entriesInChunk)
-	count := uint64(0)
+	count := uint64(1) // 0 is reserved for 'we're not using ids'
 
 	for {
 		n, err := r.journal.Next()
@@ -100,7 +100,7 @@ func (r *Reader) Run(inputChunksChannel chan InputChunk) {
 				if err != nil {
 					log.Fatal("unable to use find cursor???")
 				}
-				inputChunk.id = ChunkID{cursor: cursor, order: count}
+				inputChunk.id = ChunkID{cursor: cursor, id: count}
 				count = count + 1
 			}
 			r.CursorSaver.ReportInFlight(inputChunk.ID())

@@ -1,0 +1,11 @@
+numShippers: 1
+numTransformers: 1
+reader:
+  fieldNames:
+   - MESSAGE
+   - PRIORITY
+shipper:
+  type: file
+  #type: kinesis
+  #region: 'us-west-1'
+  #streamName: 'arn:aws:kinesis:us-west-1111122223333:stream/my-stream'

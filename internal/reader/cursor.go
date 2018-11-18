@@ -20,7 +20,7 @@ func newCursorSaver(cursorFile string) *CursorSaver {
 	}
 }
 
-func (cs *CursorSaver) ReportCompleted(completedChunkIDs []ChunkID) {
+func (cs *CursorSaver) ReportCompleted(completedChunkIDs []uint64) {
 	if cs.cursorFile == "" || len(completedChunkIDs) == 0 {
 		return
 	}
@@ -30,7 +30,7 @@ func (cs *CursorSaver) ReportCompleted(completedChunkIDs []ChunkID) {
 	for _, completedChunkID := range completedChunkIDs {
 		foundChunk := false
 		for i, chunkID := range cs.chunkIDs {
-			if completedChunkID.order == chunkID.order {
+			if completedChunkID == chunkID.id {
 				copy(cs.chunkIDs[i:], cs.chunkIDs[i+1:])
 				cs.chunkIDs = cs.chunkIDs[:len(cs.chunkIDs)-1]
 				if i == 0 {
@@ -58,7 +58,7 @@ func (cs *CursorSaver) ReportInFlight(chunkID *ChunkID) {
 
 	var i int
 	for i = len(cs.chunkIDs) - 1; i >= 0; i-- {
-		if chunkID.order <= cs.chunkIDs[i].order {
+		if chunkID.id <= cs.chunkIDs[i].id {
 			break
 		}
 	}
